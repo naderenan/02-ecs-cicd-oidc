@@ -7,7 +7,7 @@ ECS Fargate Microservice with Keyless GitHub Actions OIDC CI/CD
 AWS DevOps Engineer
 
 ## Project Description (<= 600 chars, filled in after the live run)
-<!-- UPWORK-DESCRIPTION -->
+Built and live-tested a containerised Python API on AWS ECS Fargate behind an ALB, fully in Terraform. GitHub Actions deploys it with OIDC: no AWS keys stored anywhere, and the IAM role trusts only this repo's main branch. Each push runs tests, builds an image tagged with the git SHA, pushes to ECR and rolls out with automatic rollback. Verified 2 healthy tasks across 2 AZs serving the new commit with zero downtime. Debugged GitHub's new OIDC subject format along the way. Code, diagrams and report on GitHub.
 
 ## Skills (Upwork max 5)
 - Amazon ECS

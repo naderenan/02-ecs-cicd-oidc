@@ -61,7 +61,7 @@ jobs:
         env:
           IMAGE: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
         run: |
-          docker build --build-arg APP_VERSION=${GITHUB_SHA::7} -t "$IMAGE" .
+          docker build --provenance=false --build-arg APP_VERSION=${GITHUB_SHA::7} -t "$IMAGE" .
           docker push "$IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 

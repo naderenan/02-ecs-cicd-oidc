@@ -21,6 +21,18 @@ variable "github_repo" {
   default     = "naderenan/02-ecs-cicd-oidc"
 }
 
+variable "github_owner_id" {
+  description = "Numeric GitHub owner ID (newer OIDC subject format). Find it in the token claims or https://api.github.com/users/<owner>."
+  type        = string
+  default     = "44513314"
+}
+
+variable "github_repo_id" {
+  description = "Numeric GitHub repository ID (newer OIDC subject format)."
+  type        = string
+  default     = "1467367150"
+}
+
 variable "github_branch" {
   description = "Only workflows on this branch can assume the deploy role."
   type        = string

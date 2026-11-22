@@ -29,6 +29,10 @@ Teams shipping containers to AWS often hit the same issues:
 | Credential rotation | Manual | Not needed (short-lived OIDC credentials) |
 | Rollback | Manual redeploy | Automatic (circuit breaker) |
 
-<!-- VALIDATION -->
+## 5. Validation (live run)
+- Pipeline authenticated with OIDC only, ran tests, pushed `ecs-cicd-oidc:590ac89…` and rolled it out with zero downtime (deployment `COMPLETED`, 2/2 targets healthy across 2 AZs).
+- Found and fixed a real-world issue: GitHub's newer OIDC subject format (immutable owner/repo IDs) did not match a classic trust policy. The role now accepts both, still restricted to this repository's `main` branch.
+- Destroyed after the demo, with an audit for leftover services, load balancers, VPCs and repositories.
+
 
 *The "before" column describes common patterns, not measured client data. This is a portfolio build deployed to a sandbox account.*

@@ -32,7 +32,13 @@ data "aws_iam_policy_document" "github_assume" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:ref:refs/heads/${var.github_branch}"]
+      # GitHub's newer subject format pins the immutable owner/repo IDs, so a
+      # deleted-and-recreated repo with the same name cannot assume this role.
+      # The classic name-only format is accepted too, for older repositories.
+      values = compact([
+        var.github_owner_id != "" && var.github_repo_id != "" ? "repo:${split("/", var.github_repo)[0]}@${var.github_owner_id}/${split("/", var.github_repo)[1]}@${var.github_repo_id}:ref:refs/heads/${var.github_branch}" : "",
+        "repo:${var.github_repo}:ref:refs/heads/${var.github_branch}",
+      ])
     }
   }
 }
