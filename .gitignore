@@ -1,0 +1,11 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+terraform.tfvars
+crash.log
+__pycache__/
+.pytest_cache/
+.autopilot/
+out/
+deploy-log.txt

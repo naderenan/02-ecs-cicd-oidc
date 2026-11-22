@@ -1,0 +1,7 @@
+terraform/
+screenshots/
+scripts/
+out/
+.autopilot/
+.git/
+*.md

@@ -1,0 +1,39 @@
+flowchart LR
+    dev["Developer<br/>git push main"]
+    subgraph GH["GitHub"]
+        repo["Repository<br/>naderenan/02-ecs-cicd-oidc"]
+        gha["GitHub Actions<br/>test → build → push → deploy"]
+    end
+    subgraph AWS["AWS Cloud - us-east-1"]
+        oidc["IAM OIDC provider<br/>token.actions.githubusercontent.com"]
+        role["IAM deploy role<br/>trust: repo + main branch only<br/>least-privilege policy"]
+        ecr["Amazon ECR<br/>immutable SHA tags<br/>scan on push"]
+        cw["CloudWatch Logs<br/>7-day retention"]
+        subgraph VPC["VPC 10.30.0.0/16 - 2 Availability Zones"]
+            alb["Application Load Balancer<br/>HTTP :80"]
+            subgraph ECS["ECS Fargate service (desired 2)"]
+                t1["Task AZ-a<br/>Flask + gunicorn :8080"]
+                t2["Task AZ-b<br/>Flask + gunicorn :8080"]
+            end
+        end
+    end
+    users["Users"]
+
+    dev --> repo --> gha
+    gha -->|"OIDC token (no keys)"| oidc --> role
+    gha -->|docker push| ecr
+    gha -->|register task def + update service| ECS
+    ecr -->|pull| ECS
+    users --> alb --> t1 & t2
+    t1 & t2 --> cw
+
+    classDef aws fill:#FF9900,stroke:#232F3E,color:#232F3E
+    classDef gh fill:#24292f,stroke:#24292f,color:#ffffff
+    classDef app fill:#326CE5,stroke:#1d3f8a,color:#ffffff
+    class oidc,role,ecr,cw,alb aws
+    class repo,gha gh
+    class t1,t2 app
+    style AWS fill:#ffffff,stroke:#232F3E,stroke-width:2px
+    style VPC fill:#f2f8ff,stroke:#147EBA,stroke-width:2px
+    style ECS fill:#ffffff,stroke:#326CE5,stroke-dasharray:4 3
+    style GH fill:#f6f8fa,stroke:#24292f

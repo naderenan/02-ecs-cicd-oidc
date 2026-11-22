@@ -1,0 +1,93 @@
+name: build-test-deploy
+
+on:
+  push:
+    branches: [main]
+    paths: ["app/**", "Dockerfile", ".github/workflows/deploy.yml"]
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # required for OIDC
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  ECR_REPOSITORY: ecs-cicd-oidc
+  ECS_CLUSTER: ecs-cicd-oidc
+  ECS_SERVICE: ecs-cicd-oidc
+  CONTAINER_NAME: app
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r app/requirements-dev.txt
+      - run: cd app && pytest -q
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    # No `environment:` here: it would change the OIDC subject claim to
+    # repo:<owner>/<repo>:environment:<name> and break the IAM trust condition.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC, no stored keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, scan-on-push and push image (tag = git SHA)
+        id: build
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+        run: |
+          docker build --build-arg APP_VERSION=${GITHUB_SHA::7} -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition --task-definition "$ECS_SERVICE" \
+            --query taskDefinition > task-def.json
+
+      - name: Render new task definition
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-def.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.build.outputs.image }}
+          command: "gunicorn --bind 0.0.0.0:8080 --workers 2 --access-logfile - app:app"
+
+      - name: Deploy to ECS and wait for a healthy rollout
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+
+      - name: Smoke test through the ALB
+        if: ${{ vars.APP_URL != '' }}
+        run: |
+          for i in $(seq 1 12); do
+            body=$(curl -fsS "${{ vars.APP_URL }}/" || true)
+            echo "$body"
+            echo "$body" | grep -q "\"version\":\"${GITHUB_SHA::7}\"" && exit 0
+            sleep 10
+          done
+          echo "New version not served yet" && exit 1
